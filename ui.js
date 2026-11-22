@@ -175,6 +175,15 @@
             button('clueWords', t('clueThreeWords'), { variant: 'segment', value: 3, pressed: s.clueWords === 3 }) +
           '</div>' +
         '</div>' +
+        '<div class="setting setting-column">' +
+          '<div><div class="setting-label">' + t('imposterClue') + '</div>' +
+          '<div class="setting-hint">' + t('imposterClueHint') + '</div></div>' +
+          '<div class="segmented segmented-3" role="group" aria-label="' + t('imposterClue') + '">' +
+            [Game.IMPOSTER_CLUES.CATEGORY, Game.IMPOSTER_CLUES.HINT, Game.IMPOSTER_CLUES.BOTH].map((v) =>
+              button('imposterClue', t('imposterClue_' + v), { variant: 'segment', value: v, pressed: s.imposterClue === v })
+            ).join('') +
+          '</div>' +
+        '</div>' +
         '<label class="setting toggle-row">' +
           '<span class="setting-label">' + t('finalGuess') + '</span>' +
           '<input type="checkbox" id="final-guess-toggle" class="switch"' + (s.finalGuess ? ' checked' : '') + '>' +
@@ -198,15 +207,32 @@
     actionBar(button('start', t('startGame')));
   }
 
+  // What an imposter sees, per the imposter-clue setting (category, hint or both).
+  function imposterClueHtml(r) {
+    const s = state.settings;
+    const category = esc(categoryLabel(r.categoryId));
+    if (Game.imposterSeesHint(s) && Game.imposterSeesCategory(s)) {
+      return '<div class="secret-label">' + t('hintLabel') + '</div>' +
+        '<div class="secret-word">' + esc(r.hint) + '</div>' +
+        '<div class="secret-sub">' + t('wordCategoryIs', { category }) + '</div>';
+    }
+    if (Game.imposterSeesHint(s)) {
+      return '<div class="secret-label">' + t('hintLabel') + '</div>' +
+        '<div class="secret-word">' + esc(r.hint) + '</div>' +
+        '<div class="secret-sub">' + t('imposterHintOnly') + '</div>';
+    }
+    return '<div class="secret-label">' + t('categoryLabel') + '</div>' +
+      '<div class="secret-word">' + category + '</div>' +
+      '<div class="secret-sub">' + t('imposterCategoryHint') + '</div>';
+  }
+
   function renderReveal() {
     const r = state.round;
     const id = Game.currentRevealPlayerId(state);
     const imposter = Game.isImposter(r, id);
     const isLast = r.revealIndex === r.order.length - 1;
     const secret = imposter
-      ? '<div class="secret-role imposter">' + t('youAreImposter') + '</div>' +
-        '<div class="secret-word">' + esc(categoryLabel(r.categoryId)) + '</div>' +
-        '<div class="secret-sub">' + t('imposterCategoryHint') + '</div>'
+      ? '<div class="secret-role imposter">' + t('youAreImposter') + '</div>' + imposterClueHtml(r)
       : '<div class="secret-role">' + t('yourWord') + '</div>' +
         '<div class="secret-word">' + esc(r.word) + '</div>' +
         '<div class="secret-sub">' + t('wordCategoryIs', { category: esc(categoryLabel(r.categoryId)) }) + '</div>';
@@ -264,7 +290,8 @@
         button('pause', paused ? t('resume') : t('pause'), { variant: 'btn-secondary', id: 'pause-button', disabled: remaining <= 0 }) +
         button('addTime', t('addTime'), { variant: 'btn-secondary' }) +
       '</div>' +
-      '<p class="muted small">' + esc(categoryLabel(r.categoryId)) + '</p>' +
+      // The category is shown to everyone only if imposters were given it anyway.
+      (Game.imposterSeesCategory(state.settings) ? '<p class="muted small">' + esc(categoryLabel(r.categoryId)) + '</p>' : '') +
     '</div>' +
     actionBar(button('goVote', t('goVote')));
   }
@@ -365,6 +392,7 @@
       '<dl class="facts card">' +
         (r.word ? '<div><dt>' + t('theWord') + '</dt><dd>' + esc(r.word) + '</dd></div>' : '') +
         '<div><dt>' + t('theCategory') + '</dt><dd>' + esc(categoryLabel(r.categoryId)) + '</dd></div>' +
+        (r.hint && Game.imposterSeesHint(state.settings) ? '<div><dt>' + t('hintLabel') + '</dt><dd>' + esc(r.hint) + '</dd></div>' : '') +
         '<div><dt>' + t('theImposters') + '</dt><dd>' + imposters + '</dd></div>' +
       '</dl>' +
       '<section class="card"><h2>' + t('scoreboardTitle') + '</h2>' + scoreboardHtml() +
@@ -506,6 +534,7 @@
       state.settings.discussionAuto = false;
     }),
     clueWords: (value) => commit(() => { state.settings.clueWords = Number(value); }),
+    imposterClue: (value) => commit(() => { state.settings.imposterClue = value; Game.applyAutoSettings(state); }),
     toggleCategory: (value) => commit(() => {
       const ids = state.settings.categoryIds;
       state.settings.categoryIds = ids.includes(value) ? ids.filter((id) => id !== value) : ids.concat(value);

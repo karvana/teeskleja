@@ -29,6 +29,7 @@ Based on the "Imposter Word Game – Rules Specification":
 - Tie: a 30 s extra discussion, then a re-vote among the tied players. After 2 re-votes that are still tied, the imposters survive.
 - **Several imposters:** each vote removes one player. Voting out a civilian means the imposters win. Catching an imposter while more remain leads to another discussion and vote.
 - **Final guess** (toggle): a caught imposter says a guess out loud, and the group marks it right or wrong.
+- **What the imposter sees** (setting, exactly one option): the word's category (default), a hint word, or both. Every word in `words.js` has a hint, a related word that doesn't contain the secret word (e.g. `lumi` → `külm`). In hint-only mode the discussion screen also hides the category, so it doesn't leak to the imposter.
 - **Secret all-imposters round** (toggle, off by default): when on, each round has a 15% chance (`ALL_IMPOSTERS_CHANCE` in `game.js`) that everyone is an imposter. Every player's reveal looks exactly like a normal imposter reveal, so nobody can tell. The first elimination ends the round with "everyone was an imposter", and nobody scores.
 - **Scoring:** each winning civilian gets +1. Each imposter gets +2 when the imposters win.
 
@@ -58,4 +59,4 @@ Open <http://localhost:5173>. To try it on a phone on the same Wi-Fi, run `pytho
 
 ## Editing words
 
-Add or change words in `words.js`. Each category has an English `id`, a display `label`, and a `words` list. Avoid duplicate words within a category.
+Add or change words in `words.js`. Each category has an English `id`, a display `label`, and a `words` list of `{ word, hint }` entries. Avoid duplicate words within a category. A hint must not contain the word, and the word must not contain the hint.

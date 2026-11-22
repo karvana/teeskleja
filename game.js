@@ -22,6 +22,9 @@ const Game = (() => {
     ROUND_END: 'roundEnd',
   });
 
+  // What an imposter is shown instead of the secret word (exactly one option is active).
+  const IMPOSTER_CLUES = Object.freeze({ CATEGORY: 'category', HINT: 'hint', BOTH: 'both' });
+
   const WINNERS = Object.freeze({ CIVILIANS: 'civilians', IMPOSTERS: 'imposters', NOBODY: 'nobody' });
 
   const REASONS = Object.freeze({
@@ -62,6 +65,7 @@ const Game = (() => {
         discussionAuto: true,
         clueWords: 1,
         finalGuess: true,
+        imposterClue: IMPOSTER_CLUES.CATEGORY,
         allImposterRounds: false,
         categoryIds: categories.map((c) => c.id),
       },
@@ -104,6 +108,8 @@ const Game = (() => {
     if (s.imposterCountAuto) s.imposterCount = recommendedImposters(n);
     s.imposterCount = Math.min(Math.max(1, s.imposterCount), maxImposters(n));
     if (s.discussionAuto) s.discussionSeconds = recommendedDiscussionSeconds(n);
+    // Older saved states have no imposter-clue setting; exactly one option must be active.
+    if (!Object.values(IMPOSTER_CLUES).includes(s.imposterClue)) s.imposterClue = IMPOSTER_CLUES.CATEGORY;
   }
 
   function validateSetup(state) {
@@ -128,40 +134,50 @@ const Game = (() => {
     return categoryId + ':' + word;
   }
 
-  // Picks an unused word from the selected categories; recycles once all are used.
+  // Picks an unused word entry from the selected categories; recycles once all are used.
+  // Returns { categoryId, word, hint }.
   function pickWord(state, categories, rng = Math.random) {
     const selected = categories.filter((c) => state.settings.categoryIds.includes(c.id));
     const used = new Set(state.usedWords);
+    const toPick = (c, entry) => ({ categoryId: c.id, word: entry.word, hint: entry.hint });
     let pool = [];
-    selected.forEach((c) => c.words.forEach((w) => {
-      if (!used.has(wordKey(c.id, w))) pool.push({ categoryId: c.id, word: w });
+    selected.forEach((c) => c.words.forEach((entry) => {
+      if (!used.has(wordKey(c.id, entry.word))) pool.push(toPick(c, entry));
     }));
     if (!pool.length) {
       const selectedIds = new Set(selected.map((c) => c.id));
       state.usedWords = state.usedWords.filter((k) => !selectedIds.has(k.split(':')[0]));
       pool = [];
-      selected.forEach((c) => c.words.forEach((w) => pool.push({ categoryId: c.id, word: w })));
+      selected.forEach((c) => c.words.forEach((entry) => pool.push(toPick(c, entry))));
     }
     const pick = pool[Math.floor(rng() * pool.length)];
     state.usedWords.push(wordKey(pick.categoryId, pick.word));
     return pick;
   }
 
-  // Secret twist round: everyone is an imposter and only sees the category.
+  // Which clue(s) an imposter sees instead of the word.
+  function imposterSeesCategory(settings) {
+    return settings.imposterClue !== IMPOSTER_CLUES.HINT;
+  }
+
+  function imposterSeesHint(settings) {
+    return settings.imposterClue === IMPOSTER_CLUES.HINT || settings.imposterClue === IMPOSTER_CLUES.BOTH;
+  }
+
+  // Secret twist round: everyone is an imposter and only sees the imposter clue.
   // Each player's reveal looks exactly like a normal imposter's, so nobody can tell.
   function rollAllImposters(state, rng) {
     return Boolean(state.settings.allImposterRounds) && rng() < ALL_IMPOSTERS_CHANCE;
   }
 
-  function pickCategoryOnly(state, categories, rng) {
-    const selected = categories.filter((c) => state.settings.categoryIds.includes(c.id));
-    return { categoryId: selected[Math.floor(rng() * selected.length)].id, word: null };
-  }
-
   function startRound(state, categories, rng = Math.random) {
     const ids = state.players.map((p) => p.id);
     const allImposters = rollAllImposters(state, rng);
-    const { categoryId, word } = allImposters ? pickCategoryOnly(state, categories, rng) : pickWord(state, categories, rng);
+    // A twist round still needs a category and hint to show, but has no secret word.
+    const pick = pickWord(state, categories, rng);
+    const categoryId = pick.categoryId;
+    const hint = pick.hint;
+    const word = allImposters ? null : pick.word;
     const imposterIds = allImposters ? ids.slice() : shuffle(ids, rng).slice(0, state.settings.imposterCount);
     // Rotate the starting player every round so nobody always clues blind.
     const start = state.roundsPlayed % ids.length;
@@ -171,6 +187,7 @@ const Game = (() => {
       number: state.roundsPlayed + 1,
       categoryId,
       word,
+      hint,
       allImposters,
       imposterIds,
       order,
@@ -397,7 +414,8 @@ const Game = (() => {
   }
 
   return {
-    MIN_PLAYERS, MAX_PLAYERS, TIE_BREAK_SECONDS, PHASES, WINNERS, REASONS,
+    MIN_PLAYERS, MAX_PLAYERS, TIE_BREAK_SECONDS, PHASES, WINNERS, REASONS, IMPOSTER_CLUES,
+    imposterSeesCategory, imposterSeesHint,
     CIVILIAN_WIN_POINTS, IMPOSTER_WIN_POINTS, ALL_IMPOSTERS_CHANCE,
     recommendedImposters, maxImposters, recommendedDiscussionSeconds,
     createInitialState, addPlayer, removePlayer, applyAutoSettings, validateSetup,
