@@ -8,6 +8,8 @@ const Game = (() => {
   const MAX_TIE_BREAKS = 2; // after this many re-votes still tied, the imposters survive
   const CIVILIAN_WIN_POINTS = 1;
   const IMPOSTER_WIN_POINTS = 2;
+  // When the "all imposters" twist is enabled, the chance that any given round uses it.
+  const ALL_IMPOSTERS_CHANCE = 0.15;
 
   const PHASES = Object.freeze({
     SETUP: 'setup',
@@ -20,7 +22,7 @@ const Game = (() => {
     ROUND_END: 'roundEnd',
   });
 
-  const WINNERS = Object.freeze({ CIVILIANS: 'civilians', IMPOSTERS: 'imposters' });
+  const WINNERS = Object.freeze({ CIVILIANS: 'civilians', IMPOSTERS: 'imposters', NOBODY: 'nobody' });
 
   const REASONS = Object.freeze({
     ALL_FOUND: 'allFound',
@@ -28,6 +30,7 @@ const Game = (() => {
     WORD_GUESSED: 'wordGuessed',
     OUTNUMBERED: 'outnumbered',
     DEADLOCK: 'deadlock',
+    ALL_IMPOSTERS: 'allImposters',
   });
 
   // ---- Settings helpers ----------------------------------------------------
@@ -59,6 +62,7 @@ const Game = (() => {
         discussionAuto: true,
         clueWords: 1,
         finalGuess: true,
+        allImposterRounds: false,
         categoryIds: categories.map((c) => c.id),
       },
       usedWords: [],
@@ -143,10 +147,22 @@ const Game = (() => {
     return pick;
   }
 
+  // Secret twist round: everyone is an imposter and only sees the category.
+  // Each player's reveal looks exactly like a normal imposter's, so nobody can tell.
+  function rollAllImposters(state, rng) {
+    return Boolean(state.settings.allImposterRounds) && rng() < ALL_IMPOSTERS_CHANCE;
+  }
+
+  function pickCategoryOnly(state, categories, rng) {
+    const selected = categories.filter((c) => state.settings.categoryIds.includes(c.id));
+    return { categoryId: selected[Math.floor(rng() * selected.length)].id, word: null };
+  }
+
   function startRound(state, categories, rng = Math.random) {
     const ids = state.players.map((p) => p.id);
-    const { categoryId, word } = pickWord(state, categories, rng);
-    const imposterIds = shuffle(ids, rng).slice(0, state.settings.imposterCount);
+    const allImposters = rollAllImposters(state, rng);
+    const { categoryId, word } = allImposters ? pickCategoryOnly(state, categories, rng) : pickWord(state, categories, rng);
+    const imposterIds = allImposters ? ids.slice() : shuffle(ids, rng).slice(0, state.settings.imposterCount);
     // Rotate the starting player every round so nobody always clues blind.
     const start = state.roundsPlayed % ids.length;
     const order = ids.slice(start).concat(ids.slice(0, start));
@@ -155,6 +171,7 @@ const Game = (() => {
       number: state.roundsPlayed + 1,
       categoryId,
       word,
+      allImposters,
       imposterIds,
       order,
       alive: order.slice(),
@@ -291,7 +308,10 @@ const Game = (() => {
       r.tieCount += 1;
       r.tieCandidates = leaders;
       r.eliminatedId = null;
-      if (r.tieCount > MAX_TIE_BREAKS) endRound(state, WINNERS.IMPOSTERS, REASONS.DEADLOCK);
+      if (r.tieCount > MAX_TIE_BREAKS) {
+        if (r.allImposters) endRound(state, WINNERS.NOBODY, REASONS.ALL_IMPOSTERS);
+        else endRound(state, WINNERS.IMPOSTERS, REASONS.DEADLOCK);
+      }
       return;
     }
     r.tieCount = 0;
@@ -309,6 +329,11 @@ const Game = (() => {
     const r = state.round;
     const id = r.eliminatedId;
     r.alive = r.alive.filter((p) => p !== id);
+    // Twist round: the first elimination reveals that everyone was an imposter.
+    if (r.allImposters) {
+      endRound(state, WINNERS.NOBODY, REASONS.ALL_IMPOSTERS);
+      return;
+    }
     if (!isImposter(r, id)) {
       endRound(state, WINNERS.IMPOSTERS, REASONS.CIVILIAN_VOTED_OUT);
       return;
@@ -373,7 +398,7 @@ const Game = (() => {
 
   return {
     MIN_PLAYERS, MAX_PLAYERS, TIE_BREAK_SECONDS, PHASES, WINNERS, REASONS,
-    CIVILIAN_WIN_POINTS, IMPOSTER_WIN_POINTS,
+    CIVILIAN_WIN_POINTS, IMPOSTER_WIN_POINTS, ALL_IMPOSTERS_CHANCE,
     recommendedImposters, maxImposters, recommendedDiscussionSeconds,
     createInitialState, addPlayer, removePlayer, applyAutoSettings, validateSetup,
     startRound, isImposter, playerById,

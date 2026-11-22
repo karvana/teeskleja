@@ -179,6 +179,11 @@
           '<span class="setting-label">' + t('finalGuess') + '</span>' +
           '<input type="checkbox" id="final-guess-toggle" class="switch"' + (s.finalGuess ? ' checked' : '') + '>' +
         '</label>' +
+        '<label class="setting toggle-row">' +
+          '<span><span class="setting-label">' + t('allImposterRounds') + '</span>' +
+          '<span class="setting-hint block">' + t('allImposterRoundsHint') + '</span></span>' +
+          '<input type="checkbox" id="all-imposters-toggle" class="switch"' + (s.allImposterRounds ? ' checked' : '') + '>' +
+        '</label>' +
       '</section>' +
       '<section class="card">' +
         '<div class="card-head"><h2>' + t('categoriesTitle') + '</h2>' +
@@ -348,16 +353,19 @@
 
   function renderRoundEnd() {
     const r = state.round;
-    const civWin = r.winner === Game.WINNERS.CIVILIANS;
+    const W = Game.WINNERS;
+    const bannerClass = { [W.CIVILIANS]: 'is-civilian', [W.IMPOSTERS]: 'is-imposter', [W.NOBODY]: 'is-twist' }[r.winner];
+    const title = { [W.CIVILIANS]: t('civiliansWin'), [W.IMPOSTERS]: t('impostersWin'), [W.NOBODY]: t('allImpostersTitle') }[r.winner];
+    const imposters = r.allImposters ? t('everyone') : r.imposterIds.map((id) => esc(playerName(id))).join(', ');
     return '<div class="stack">' +
-      '<div class="winner-banner ' + (civWin ? 'is-civilian' : 'is-imposter') + '">' +
-        '<p class="winner-title">' + (civWin ? t('civiliansWin') : t('impostersWin')) + '</p>' +
+      '<div class="winner-banner ' + bannerClass + '">' +
+        '<p class="winner-title">' + title + '</p>' +
         '<p class="winner-reason">' + t('reason_' + r.reason) + '</p>' +
       '</div>' +
       '<dl class="facts card">' +
-        '<div><dt>' + t('theWord') + '</dt><dd>' + esc(r.word) + '</dd></div>' +
+        (r.word ? '<div><dt>' + t('theWord') + '</dt><dd>' + esc(r.word) + '</dd></div>' : '') +
         '<div><dt>' + t('theCategory') + '</dt><dd>' + esc(categoryLabel(r.categoryId)) + '</dd></div>' +
-        '<div><dt>' + t('theImposters') + '</dt><dd>' + r.imposterIds.map((id) => esc(playerName(id))).join(', ') + '</dd></div>' +
+        '<div><dt>' + t('theImposters') + '</dt><dd>' + imposters + '</dd></div>' +
       '</dl>' +
       '<section class="card"><h2>' + t('scoreboardTitle') + '</h2>' + scoreboardHtml() +
         '<p class="muted small">' + t('pointsHint', { civ: Game.CIVILIAN_WIN_POINTS, imp: Game.IMPOSTER_WIN_POINTS }) + '</p></section>' +
@@ -573,6 +581,7 @@
 
   screen.addEventListener('change', (e) => {
     if (e.target.id === 'final-guess-toggle') commit(() => { state.settings.finalGuess = e.target.checked; });
+    if (e.target.id === 'all-imposters-toggle') commit(() => { state.settings.allImposterRounds = e.target.checked; });
   });
 
   quitButton.addEventListener('click', () => {

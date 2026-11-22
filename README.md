@@ -29,6 +29,7 @@ Based on the "Imposter Word Game – Rules Specification":
 - Tie: a 30 s extra discussion, then a re-vote among the tied players. After 2 re-votes that are still tied, the imposters survive.
 - **Several imposters:** each vote removes one player. Voting out a civilian means the imposters win. Catching an imposter while more remain leads to another discussion and vote.
 - **Final guess** (toggle): a caught imposter says a guess out loud, and the group marks it right or wrong.
+- **Secret all-imposters round** (toggle, off by default): when on, each round has a 15% chance (`ALL_IMPOSTERS_CHANCE` in `game.js`) that everyone is an imposter. Every player's reveal looks exactly like a normal imposter reveal, so nobody can tell. The first elimination ends the round with "everyone was an imposter", and nobody scores.
 - **Scoring:** each winning civilian gets +1. Each imposter gets +2 when the imposters win.
 
 ## Run locally

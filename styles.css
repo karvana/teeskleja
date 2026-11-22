@@ -518,6 +518,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 
 .winner-banner.is-imposter { background: var(--imposter-soft); color: var(--imposter); }
 
+.winner-banner.is-twist { background: var(--accent-soft); color: var(--accent); }
+
+.setting-hint.block { display: block; margin-top: 2px; }
+
 .winner-title { margin: 0; font-size: 30px; font-weight: 850; }
 
 .winner-reason { margin: 6px 0 0; font-weight: 600; color: var(--text); }
