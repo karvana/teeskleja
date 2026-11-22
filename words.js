@@ -106,7 +106,7 @@ const WORD_CATEGORIES = [
       { word: 'kilpkonn', hint: 'pikk' },
       { word: 'madu', hint: 'vaikne' },
       { word: 'konn', hint: 'kevad' },
-      { word: 'öökull', hint: 'öö' },
+      { word: 'öökull', hint: 'huhuu' },
       { word: 'kotkas', hint: 'vabadus' },
     ],
   },
